@@ -134,3 +134,6 @@ dmypy.json
 .idea/misc.xml
 .idea/inspectionProfiles/profiles_settings.xml
 .idea/deployment.xml
+
+# Apple?
+.DS_Store
