@@ -1,4 +1,4 @@
-# code adapted from https://www.kaggle.com/code/leifuer/intro-to-pytorch-loading-image-data
+# code adapted from https://towardsdatascience.com/how-to-load-a-custom-image-dataset-on-pytorch-bf10b2c529e0
 
 # imports
 import matplotlib.pyplot as plt
@@ -8,101 +8,12 @@ from torchvision import datasets, transforms
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from torch import nn, optim
-from torch.autograd import Variable
 import pandas as pd
+from torch.utils.data import Dataset
+from PIL import Image
 
 # set global vars
 PATH = os.getcwd() + '/Code/Data/Vegetable Images'
-
-# defines helper functions
-def test_network(net, trainloader):
-
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(net.parameters(), lr=0.001)
-
-    dataiter = iter(trainloader)
-    images, labels = dataiter.next()
-
-    # Create Variables for the inputs and targets
-    inputs = Variable(images)
-    targets = Variable(images)
-
-    # Clear the gradients from all Variables
-    optimizer.zero_grad()
-
-    # Forward pass, then backward pass, then update weights
-    output = net.forward(inputs)
-    loss = criterion(output, targets)
-    loss.backward()
-    optimizer.step()
-
-    return True
-
-def imshow(image, ax=None, title=None, normalize=True):
-    """Imshow for Tensor."""
-    if ax is None:
-        fig, ax = plt.subplots()
-    image = image.numpy().transpose((1, 2, 0))
-
-    if normalize:
-        mean = np.array([0.485, 0.456, 0.406])
-        std = np.array([0.229, 0.224, 0.225])
-        image = std * image + mean
-        image = np.clip(image, 0, 1)
-
-    ax.imshow(image)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.tick_params(axis='both', length=0)
-    ax.set_xticklabels('')
-    ax.set_yticklabels('')
-
-    return ax
-
-
-def view_recon(img, recon):
-    ''' Function for displaying an image (as a PyTorch Tensor) and its
-        reconstruction also a PyTorch Tensor
-    '''
-
-    fig, axes = plt.subplots(ncols=2, sharex=True, sharey=True)
-    axes[0].imshow(img.numpy().squeeze())
-    axes[1].imshow(recon.data.numpy().squeeze())
-    for ax in axes:
-        ax.axis('off')
-        ax.set_adjustable('box-forced')
-
-def view_classify(img, ps, version="MNIST"):
-    ''' Function for viewing an image and it's predicted classes.
-    '''
-    ps = ps.data.numpy().squeeze()
-
-    fig, (ax1, ax2) = plt.subplots(figsize=(6,9), ncols=2)
-    ax1.imshow(img.resize_(1, 28, 28).numpy().squeeze())
-    ax1.axis('off')
-    ax2.barh(np.arange(10), ps)
-    ax2.set_aspect(0.1)
-    ax2.set_yticks(np.arange(10))
-    if version == "MNIST":
-        ax2.set_yticklabels(np.arange(10))
-    elif version == "Fashion":
-        ax2.set_yticklabels(['T-shirt/top',
-                            'Trouser',
-                            'Pullover',
-                            'Dress',
-                            'Coat',
-                            'Sandal',
-                            'Shirt',
-                            'Sneaker',
-                            'Bag',
-                            'Ankle Boot'], size='small');
-    ax2.set_title('Class Probability')
-    ax2.set_xlim(0, 1.1)
-
-    plt.tight_layout()
 
 # create dataframes for train, val, and test data:
 train_dir = PATH + '/train'
@@ -120,11 +31,11 @@ def getFrame(filepath):
     for i in range(len(files)): # loop through each category
         data = os.listdir(train_dir + "/" + files[i])
         label = files[i]
-        data_dict = {'image': data, 'label': ([label]*len(data))}
+        data_dict = {'image': data, 'label_string': ([label]*len(data)), 'label': ([label]*len(data))}
         frame = pd.DataFrame(data_dict)
         df = df.append(frame)
     encoded = pd.get_dummies(df, columns=['label'])
-    encoded['target'] = encoded.iloc[:, 1:].apply(list, axis=1)
+    encoded['target'] = encoded.iloc[:, 2:].apply(list, axis=1)
     return encoded
 
 # create splits and encode:
@@ -132,25 +43,49 @@ train_df = getFrame(train_dir)
 val_df = getFrame(val_dir)
 test_df = getFrame(test_dir)
 
+class ImagesDataset(Dataset):
+    """
+    The Class will act as the container for our dataset. It will take your dataframe, the root path, and also the transform function for transforming the dataset.
+    """
 
-data_dir = PATH + '/train'
+    def __init__(self, data_frame, root_dir, transform=None):
+        self.data_frame = data_frame
+        self.root_dir = root_dir
+        self.transform = transform
 
-transform = torchvision.transforms.Compose([transforms.Resize(255),
-                                transforms.CenterCrop(224),
-                                transforms.ToTensor()
-                               ])
-dataset = torchvision.datasets.ImageFolder(data_dir, transform=transform)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
+    def __len__(self):
+        # Return the length of the dataset
+        return len(self.data_frame)
 
-# Run this to test your data loader
-images, labels = next(iter(dataloader))
-# helper.imshow(images[0], normalize=False)
-imshow(images[0], normalize=False)
+    def __getitem__(self, idx):
+        # Return the observation based on an index. Ex. dataset[0] will return the first element from the dataset, in this case the image and the label.
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        label = self.data_frame.iloc[idx]['label_string']
+        img_name = self.data_frame.iloc[idx]['image']
+        img_path = os.path.join(self.root_dir, label, img_name)
+        image = Image.open(img_path)
+
+        if self.transform:
+            image = self.transform(image)
+
+        return (image, label)
+
+# INSTANTIATE THE OBJECT
+train = ImagesDataset(
+    data_frame=train_df,
+    root_dir=train_dir,
+    transform=transforms.Compose([
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor()
+    ])
+)
+
+# plot an example of an image
+temp_img, temp_lab = train[0]
+plt.imshow(temp_img.numpy().transpose((1, 2, 0)))
+plt.title(temp_lab)
+plt.axis('off')
 plt.show()
-
-
-# temp_img, temp_lab = pathology_train[2]
-# plt.imshow(temp_img.numpy().transpose((1, 2, 0)))
-# plt.title(label_names[temp_lab])
-# plt.axis('off')
-# plt.show()
