@@ -1,5 +1,6 @@
 # code adapted from https://www.kaggle.com/code/leifuer/intro-to-pytorch-loading-image-data
-# import
+
+# imports
 import matplotlib.pyplot as plt
 import torch
 import torchvision
@@ -9,8 +10,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from torch import nn, optim
 from torch.autograd import Variable
+import pandas as pd
 
+# set global vars
+PATH = os.getcwd() + '/Code/Data/Vegetable Images'
 
+# defines helper functions
 def test_network(net, trainloader):
 
     criterion = nn.MSELoss()
@@ -99,7 +104,34 @@ def view_classify(img, ps, version="MNIST"):
 
     plt.tight_layout()
 
-PATH = os.getcwd() + '/Code/Data/Vegetable Images'
+# create dataframes for train, val, and test data:
+train_dir = PATH + '/train'
+val_dir = PATH + '/validation'
+test_dir = PATH + '/test'
+
+def getFrame(filepath):
+    '''
+    :param filepath:
+    :return: dataframe of images and labels for the given split, encoded and converted to target
+    '''
+    mac_files = ['.DS_Store']
+    files = [file for file in os.listdir(filepath) if file not in mac_files]
+    df = pd.DataFrame()
+    for i in range(len(files)): # loop through each category
+        data = os.listdir(train_dir + "/" + files[i])
+        label = files[i]
+        data_dict = {'image': data, 'label': ([label]*len(data))}
+        frame = pd.DataFrame(data_dict)
+        df = df.append(frame)
+    encoded = pd.get_dummies(df, columns=['label'])
+    encoded['target'] = encoded.iloc[:, 1:].apply(list, axis=1)
+    return encoded
+
+# create splits and encode:
+train_df = getFrame(train_dir)
+val_df = getFrame(val_dir)
+test_df = getFrame(test_dir)
+
 
 data_dir = PATH + '/train'
 
@@ -114,4 +146,11 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
 images, labels = next(iter(dataloader))
 # helper.imshow(images[0], normalize=False)
 imshow(images[0], normalize=False)
+plt.show()
 
+
+# temp_img, temp_lab = pathology_train[2]
+# plt.imshow(temp_img.numpy().transpose((1, 2, 0)))
+# plt.title(label_names[temp_lab])
+# plt.axis('off')
+# plt.show()
