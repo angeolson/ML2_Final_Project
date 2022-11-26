@@ -34,3 +34,12 @@ label = self.data_frame.iloc[idx]['label_string']
 img_name = self.data_frame.iloc[idx]['image']
 img_path = os.path.join(self.root_dir, label, img_name)
 
+getBytes = transforms.ToTensor()
+        imgTensor = getBytes(image)
+        R_mean, G_mean, B_mean = (torch.mean(imgTensor, dim = [1,2])).numpy()
+        R_std, G_std, B_std = (torch.std(imgTensor, dim = [1,2])).numpy()
+
+        if self.transform:
+            norm = transforms.Normalize([R_mean, G_mean, B_mean], [R_std, G_std, B_std])
+            image = norm(image)
+
