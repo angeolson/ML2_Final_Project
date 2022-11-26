@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 from PIL import Image
 
 # set global vars
-PATH = os.getcwd() + '/Code/Data/Vegetable Images'
+PATH = os.getcwd() + '/Data/Vegetable Images'
 
 # create dataframes for train, val, and test data:
 train_dir = PATH + '/train'
@@ -66,10 +66,15 @@ class ImagesDataset(Dataset):
         img_name = self.data_frame.iloc[idx]['image']
         img_path = os.path.join(self.root_dir, label, img_name)
         image = Image.open(img_path)
+        getBytes = transforms.ToTensor()
+        imgTensor = getBytes(image)
+        R_mean, G_mean, B_mean = (torch.mean(imgTensor, dim = [1,2])).numpy()
+        R_std, G_std, B_std = (torch.std(imgTensor, dim = [1,2])).numpy()
 
         if self.transform:
             image = self.transform(image)
-
+            norm = transforms.Normalize([R_mean, G_mean, B_mean], [R_std, G_std, B_std])
+            image = norm(image)
         return (image, label)
 
 # INSTANTIATE THE OBJECT
