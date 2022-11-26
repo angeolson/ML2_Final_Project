@@ -2,7 +2,6 @@
 
 
 # imports
-import torch
 import torch.nn as nn
 from torchvision import datasets, transforms
 import os
@@ -11,8 +10,6 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import torch
-from sklearn.metrics import accuracy_score
-from torch.autograd import Variable
 
 # %% --------------------------------------- Set-Up --------------------------------------------------------------------
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -27,7 +24,7 @@ SIZE = 224 # height and width
 # %% ----------------------------------- Hyper Parameters --------------------------------------------------------------
 LR = 1e-2
 N_EPOCHS = 5
-BATCH_SIZE = 64
+BATCH_SIZE = 12
 DROPOUT = 0.5
 
 # %% ----------------------------------- Helper Functions --------------------------------------------------------------
@@ -61,7 +58,7 @@ def getFrame(filepath):
     files = [file for file in os.listdir(filepath) if file not in mac_files]
     df = pd.DataFrame()
     for i in range(len(files)): # loop through each category
-        data = os.listdir(train_dir + "/" + files[i])
+        data = os.listdir(filepath + "/" + files[i])
         label = files[i]
         data_dict = {'image': data, 'label_string': ([label]*len(data)), 'label': ([label]*len(data))}
         frame = pd.DataFrame(data_dict)
@@ -71,10 +68,25 @@ def getFrame(filepath):
     return encoded
 
 # create splits and encode:
-train_df = getFrame(train_dir)
-val_df = getFrame(val_dir)
-test_df = getFrame(test_dir)
+train_df = getFrame(train_dir).reset_index(drop=True)
+val_df = getFrame(val_dir).reset_index(drop=True)
+test_df = getFrame(test_dir).reset_index(drop=True)
 
+# images with error: remove
+#1 PIL.UnidentifiedImageError: cannot identify image file '/home/ubuntu/Final-Project-Group4/Code/Data/Vegetable Images/train/Carrot/0214.jpg'
+find = train_df[ (train_df['image'] == '0214.jpg') & (train_df['label_string'] == 'Carrot')].index
+train_df.drop(index=find, inplace=True)
+train_df.reset_index(drop=True)
+
+#2 PIL.UnidentifiedImageError: cannot identify image file '/home/ubuntu/Final-Project-Group4/Code/Data/Vegetable Images/train/Carrot/0475.jpg'
+find = train_df[ (train_df['image'] == '0475.jpg') & (train_df['label_string'] == 'Carrot')].index
+train_df.drop(index=find, inplace=True)
+train_df.reset_index(drop=True)
+
+#3 PIL.UnidentifiedImageError: cannot identify image file '/home/ubuntu/Final-Project-Group4/Code/Data/Vegetable Images/train/Bitter_Gourd/0723.jpg'
+find = train_df[ (train_df['image'] == '0723.jpg') & (train_df['label_string'] == 'Bitter_Gourd')].index
+train_df.drop(index=find, inplace=True)
+train_df.reset_index(drop=True)
 
 # create dataloader
 class ImagesDataset(Dataset):
@@ -96,9 +108,11 @@ class ImagesDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        label = self.data_frame.iloc[idx]['label_string']
+        label_name = self.data_frame.iloc[idx]['label_string']
+        label = self.data_frame.iloc[idx]['target']
+        label = torch.Tensor(label)
         img_name = self.data_frame.iloc[idx]['image']
-        img_path = os.path.join(self.root_dir, label, img_name)
+        img_path = os.path.join(self.root_dir, label_name, img_name)
         image = Image.open(img_path)
         getBytes = transforms.ToTensor()
         imgTensor = getBytes(image)
@@ -143,9 +157,9 @@ test = ImagesDataset(
 )
 
 # set to data loaders
-train_loader = DataLoader(train, shuffle=True, batch_size=BATCH_SIZE, drop_last = True)
-valid_loader = DataLoader(validation, shuffle=True, batch_size=BATCH_SIZE, drop_last = True)
-test_loader = DataLoader(test, shuffle=True, batch_size=BATCH_SIZE, drop_last = True)
+train_loader = DataLoader(train, batch_size=BATCH_SIZE)
+valid_loader = DataLoader(validation, batch_size=BATCH_SIZE)
+test_loader = DataLoader(test, batch_size=BATCH_SIZE)
 
 # %% -------------------------------------- CNN Class ------------------------------------------------------------------
 class CNN(nn.Module):
