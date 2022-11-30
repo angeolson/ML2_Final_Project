@@ -88,6 +88,11 @@ find = train_df[ (train_df['image'] == '0723.jpg') & (train_df['label_string'] =
 train_df.drop(index=find, inplace=True)
 train_df.reset_index(drop=True)
 
+#4 PIL.UnidentifiedImageError: cannot identify image file '/home/ubuntu/Final-Project-Group4/Code/Data/Vegetable Images/train/Capsicum/0802.jpg'
+find = train_df[ (train_df['image'] == '0802.jpg') & (train_df['label_string'] == 'Capsicum')].index
+train_df.drop(index=find, inplace=True)
+train_df.reset_index(drop=True)
+
 # create dataloader
 class ImagesDataset(Dataset):
     """
@@ -260,3 +265,10 @@ for epoch in range(N_EPOCHS):
     print(f'Epoch {epoch + 1}')
     print(f'train_loss : {epoch_train_loss} val_loss : {epoch_val_loss}')
     print(f'train_accuracy : {epoch_train_acc * 100} val_accuracy : {epoch_val_acc * 100}')
+
+print('Done!')
+
+
+
+import shap
+explainer = shap.KernelExplainer(model.predict,X_train)
