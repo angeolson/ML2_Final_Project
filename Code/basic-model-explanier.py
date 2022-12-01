@@ -267,3 +267,9 @@ for epoch in range(N_EPOCHS):
     print(f'train_accuracy : {epoch_train_acc * 100} val_accuracy : {epoch_val_acc * 100}')
 
 print('Done!')
+
+
+
+
+import shap
+explainer = shap.KernelExplainer(model.predict,X_train)
