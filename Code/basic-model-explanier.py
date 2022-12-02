@@ -2,13 +2,15 @@
 
 # imports
 import torch.nn as nn
-from torchvision import datasets, transforms
+from torchvision import datasets, transforms, models
 import os
 import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import torch
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
 #os.system('pip3 install shap')
 import shap
 
@@ -23,10 +25,10 @@ CHANNEL = 3
 SIZE = 224 # height and width
 
 # %% ----------------------------------- Hyper Parameters --------------------------------------------------------------
-LR = 1e-2
-N_EPOCHS = 5
-BATCH_SIZE = 12
-DROPOUT = 0.5
+LR = 1e-3
+N_EPOCHS = 10
+BATCH_SIZE = 256
+n_classes = 15
 
 # %% ----------------------------------- Helper Functions --------------------------------------------------------------
 def multi_accuracy_score(y_pred, y_true):
@@ -76,8 +78,6 @@ test_df = getFrame(test_dir).reset_index(drop=True)
 
 # some images are corrupted--need to test if an image can be opened, then remove it from the dataframe before it even gets loaded.
 
-
-
 def getRemovalList(directory):
     # code adapted from https://stackoverflow.com/questions/63754311/unidentifiedimageerror-cannot-identify-image-file
     bad_list = []
@@ -105,7 +105,6 @@ class ImagesDataset(Dataset):
     """
     The Class will act as the container for our dataset. It will take your dataframe, the root path, and also the transform function for transforming the dataset.
     """
-
     def __init__(self, data_frame, root_dir, transform=None):
         self.data_frame = data_frame
         self.root_dir = root_dir
@@ -152,8 +151,7 @@ validation = ImagesDataset(
     data_frame=val_df,
     root_dir=val_dir,
     transform=transforms.Compose([
-        transforms.RandomResizedCrop(SIZE),
-        transforms.RandomHorizontalFlip(),
+        transforms.Resize((SIZE,SIZE)),
         transforms.ToTensor()
     ])
 )
@@ -162,8 +160,7 @@ test = ImagesDataset(
     data_frame=test_df,
     root_dir=test_dir,
     transform=transforms.Compose([
-        transforms.RandomResizedCrop(SIZE),
-        transforms.RandomHorizontalFlip(),
+        transforms.Resize((SIZE,SIZE)),
         transforms.ToTensor()
     ])
 )
@@ -173,59 +170,25 @@ train_loader = DataLoader(train, batch_size=BATCH_SIZE)
 valid_loader = DataLoader(validation, batch_size=BATCH_SIZE)
 test_loader = DataLoader(test, batch_size=BATCH_SIZE)
 
+
 # %% -------------------------------------- CNN Class ------------------------------------------------------------------
-class CNN(nn.Module):
-    def __init__(self):
-        super(CNN, self).__init__()
-        # set parameters:
-        self.init_inchannels = CHANNEL
-        self.init_hw = SIZE
-        self.init_outchannels = 16
-        self.kernel = 3
-        self.pool_kernel = 2
-        self.stride = 1
-        self.pad = 1
-        self.sec_outchannels = 32
-        self.n_classes = 15
-        self.linear_output = 400
-        self.dilation = 1
+def model_definition(n_classes):
+    '''
+        Define a Keras sequential model
+        Compile the model
+    '''
 
-        # Convolution 1
-        self.conv1 = nn.Conv2d(in_channels=self.init_inchannels, out_channels=self.init_outchannels, kernel_size=self.kernel, stride=self.stride, padding=self.pad)
-        self.o1 = int(((self.init_hw + 2*self.pad - (self.dilation*(self.kernel-1)) -1)/self.stride) + 1)
-        self.convnorm1 = nn.BatchNorm2d(self.init_outchannels)
-        self.pool1 = nn.MaxPool2d(kernel_size=self.pool_kernel, stride=self.pool_kernel, padding=self.pad)
-        self.o1p1 = int(((self.o1 + 2*self.pad - (self.dilation*(self.pool_kernel-1)) -1)/self.pool_kernel) + 1)
+    model = models.resnet50(weights="IMAGENET1K_V2")
+    for param in model.parameters():
+        param.requires_grad = False
+    model.fc = nn.Linear(model.fc.in_features, n_classes)
 
-        # Convolution 2 + 3 with pool
-        #2
-        self.conv2 = nn.Conv2d(in_channels=self.init_outchannels, out_channels=self.sec_outchannels,kernel_size=self.kernel, stride=self.stride, padding=self.pad)
-        self.o2 = ((self.o1p1 + 2 * self.pad - (self.dilation * (self.kernel - 1)) - 1) / self.stride) + 1
-        self.convnorm2 = nn.BatchNorm2d(self.sec_outchannels)
+    model = model.to(device)
 
-        #3
-        self.conv3 = nn.Conv2d(in_channels=self.init_outchannels, out_channels=self.sec_outchannels,
-                               kernel_size=self.kernel, stride=self.stride, padding=self.pad)
-        self.o3 = ((self.o2 + 2 * self.pad - (self.dilation * (self.kernel - 1)) - 1) / self.stride) + 1
-        self.convnorm2 = nn.BatchNorm2d(self.sec_outchannels)
-
-        #pooling
-        self.pool2 = nn.AvgPool2d(kernel_size=self.pool_kernel, stride=self.pool_kernel, padding=self.pad)
-        self.o2p2 = int(((self.o3 + 2 * self.pad - (self.dilation * (self.pool_kernel - 1)) - 1) / self.pool_kernel) + 1)
-
-        # Linear 1
-        self.linear1 = nn.Linear(int(self.sec_outchannels * (self.o2p2) * (self.o2p2)),self.n_classes)  # input will be flattened to (n_examples, 32 * 5 * 5)
-        self.linear1_bn = nn.BatchNorm1d(self.n_classes)
-        self.act = torch.relu
-
-    def forward(self, x):
-        x = self.pool1(self.convnorm1(self.act(self.conv1(x))))
-        x = self.pool2(self.convnorm2(self.act(self.conv2(x))))
-        x = self.linear1_bn(self.act(self.linear1(x.view(len(x), -1))))
-        return x
+    return model
 
 # %% -------------------------------------- Training Prep ----------------------------------------------------------
-model = CNN().to(device)
+model = model_definition(n_classes)
 optimizer = torch.optim.SGD(model.parameters(), lr=LR)
 criterion = nn.CrossEntropyLoss()
 
@@ -237,7 +200,7 @@ epoch_tr_acc, epoch_vl_acc = [], []
 
 for epoch in range(N_EPOCHS):
     train_losses = []
-    train_acc = 0.0
+    train_acc = []
     model.train()
     for inputs, labels in train_loader:
         inputs, labels = inputs.to(device), labels.to(device)
@@ -246,32 +209,38 @@ for epoch in range(N_EPOCHS):
         loss = criterion(output, labels.float())
         loss.backward()
         train_losses.append(loss.item())
-        accuracy = multi_accuracy_score(output, labels)
+        #accuracy = multi_accuracy_score(output, labels)
+        accuracy = accuracy_score(y_true=labels.cpu().numpy().astype(int),
+                                  y_pred=output.detach().cpu().numpy().astype(int))
         train_acc += accuracy
         optimizer.step()
 
     val_losses = []
-    val_acc = 0.0
+    val_acc = []
     model.eval()
     for inputs, labels in valid_loader:
         inputs, labels = inputs.to(device), labels.to(device)
         output = model(inputs)
         val_loss = criterion(output, labels.float())
         val_losses.append(val_loss.item())
-        accuracy = multi_accuracy_score(output, labels)
+        #accuracy = multi_accuracy_score(output, labels)
+        accuracy = accuracy_score(y_true=labels.cpu().numpy().astype(int),
+                                  y_pred=output.detach().cpu().numpy().astype(int))
         val_acc += accuracy
 
     epoch_train_loss = np.mean(train_losses)
     epoch_val_loss = np.mean(val_losses)
-    epoch_train_acc = train_acc / len(train_loader.dataset)
-    epoch_val_acc = val_acc / len(valid_loader.dataset)
+    epoch_train_acc = np.mean(train_acc)
+    epoch_val_acc = np.mean(val_acc)
+    # epoch_train_acc = train_acc / len(train_loader.dataset)
+    # epoch_val_acc = val_acc / len(valid_loader.dataset)
     epoch_tr_loss.append(epoch_train_loss)
     epoch_vl_loss.append(epoch_val_loss)
     epoch_tr_acc.append(epoch_train_acc)
     epoch_vl_acc.append(epoch_val_acc)
     print(f'Epoch {epoch + 1}')
     print(f'train_loss : {epoch_train_loss} val_loss : {epoch_val_loss}')
-    print(f'train_accuracy : {epoch_train_acc * 100} val_accuracy : {epoch_val_acc * 100}')
+    print(f'train_accuracy : {epoch_train_acc} val_accuracy : {epoch_val_acc}')
 
 print('Done!')
 
