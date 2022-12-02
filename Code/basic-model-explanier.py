@@ -1,6 +1,5 @@
 # purpose: creates very basic CNN model
 
-
 # imports
 import torch.nn as nn
 from torchvision import datasets, transforms
@@ -10,6 +9,8 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import torch
+#os.system('pip3 install shap')
+import shap
 
 # %% --------------------------------------- Set-Up --------------------------------------------------------------------
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -72,26 +73,32 @@ train_df = getFrame(train_dir).reset_index(drop=True)
 val_df = getFrame(val_dir).reset_index(drop=True)
 test_df = getFrame(test_dir).reset_index(drop=True)
 
-# images with error: remove
-#1 PIL.UnidentifiedImageError: cannot identify image file '/home/ubuntu/Final-Project-Group4/Code/Data/Vegetable Images/train/Carrot/0214.jpg'
-find = train_df[ (train_df['image'] == '0214.jpg') & (train_df['label_string'] == 'Carrot')].index
-train_df.drop(index=find, inplace=True)
-train_df.reset_index(drop=True)
 
-#2 PIL.UnidentifiedImageError: cannot identify image file '/home/ubuntu/Final-Project-Group4/Code/Data/Vegetable Images/train/Carrot/0475.jpg'
-find = train_df[ (train_df['image'] == '0475.jpg') & (train_df['label_string'] == 'Carrot')].index
-train_df.drop(index=find, inplace=True)
-train_df.reset_index(drop=True)
+# some images are corrupted--need to test if an image can be opened, then remove it from the dataframe before it even gets loaded.
 
-#3 PIL.UnidentifiedImageError: cannot identify image file '/home/ubuntu/Final-Project-Group4/Code/Data/Vegetable Images/train/Bitter_Gourd/0723.jpg'
-find = train_df[ (train_df['image'] == '0723.jpg') & (train_df['label_string'] == 'Bitter_Gourd')].index
-train_df.drop(index=find, inplace=True)
-train_df.reset_index(drop=True)
 
-#4 PIL.UnidentifiedImageError: cannot identify image file '/home/ubuntu/Final-Project-Group4/Code/Data/Vegetable Images/train/Capsicum/0802.jpg'
-find = train_df[ (train_df['image'] == '0802.jpg') & (train_df['label_string'] == 'Capsicum')].index
-train_df.drop(index=find, inplace=True)
-train_df.reset_index(drop=True)
+
+def getRemovalList(directory):
+    # code adapted from https://stackoverflow.com/questions/63754311/unidentifiedimageerror-cannot-identify-image-file
+    bad_list = []
+    mac_files = ['.DS_Store']
+    class_list = [file for file in os.listdir(directory) if file not in mac_files]  # list of classes ie dog or cat
+    for klass in class_list:  # iterate through the two classes
+        class_path = os.path.join(directory, klass)  # path to class directory
+        file_list = os.listdir(class_path)  # create list of files in class directory
+        for f in file_list:  # iterate through the files
+            fpath = os.path.join(class_path, f)
+            try:
+                image = Image.open(fpath)
+                getBytes = transforms.ToTensor()
+                imgTensor = getBytes(image)
+            except:
+                bad_list.append(fpath)
+    return bad_list
+
+badlist_train = getRemovalList(train_dir)
+badlist_val = getRemovalList(val_dir)
+badlist_test = getRemovalList(test_dir)
 
 # create dataloader
 class ImagesDataset(Dataset):
@@ -268,8 +275,10 @@ for epoch in range(N_EPOCHS):
 
 print('Done!')
 
+# for inputs, labels in train_loader:
+#     break
+# explainer = shap.KernelExplainer(model, inputs)
 
 
 
-import shap
-explainer = shap.KernelExplainer(model.predict,X_train)
+
