@@ -26,7 +26,7 @@ n_classes = 15
 # %% ----------------------------------- Hyper Parameters --------------------------------------------------------------
 LR = 1e-4  # testing larger LR from 0.01 to 0.03 (does not work, goes to 0)
 N_EPOCHS = 5
-BATCH_SIZE = 12
+BATCH_SIZE = 64
 DROPOUT = 0.5
 
 # %% ----------------------------------- Helper Functions --------------------------------------------------------------
@@ -137,9 +137,9 @@ test = ImagesDataset(
 )
 
 # set to data loaders
-train_loader = DataLoader(train, batch_size=BATCH_SIZE)
-valid_loader = DataLoader(validation, batch_size=BATCH_SIZE)
-test_loader = DataLoader(test, batch_size=BATCH_SIZE)
+train_loader = DataLoader(train, batch_size=BATCH_SIZE, drop_last=True, shuffle=True)
+valid_loader = DataLoader(validation, batch_size=BATCH_SIZE, drop_last=True)
+test_loader = DataLoader(test, batch_size=BATCH_SIZE, drop_last=True)
 
 # %% -------------------------------------- CNN Class ------------------------------------------------------------------
 class CNN(nn.Module):
@@ -229,22 +229,27 @@ class CNN(nn.Module):
         x = self.linear1_bn(self.act(self.linear3(self.act(self.linear2(x)))))
         return x
 # %% -------------------------------------- Training Prep ----------------------------------------------------------
-
-transformer = models.resnet101(pretrained=True)
+# Note: currently only the transformer works
+transformer = models.resnet34(pretrained=True)
 for param in transformer.parameters():
     param.requires_grad = False
 for param in transformer.layer4.parameters():
     param.requires_grad = True
-transformer.fc = nn.Linear(transformer.fc.in_features, n_classes)
+
+transformer.fc = nn.Sequential(
+    nn.Linear(transformer.fc.in_features, n_classes),
+    nn.Softmax(dim=1)
+                               )
 
 # %% -------------------------------------- Training Prep ----------------------------------------------------------
 model_type = 'transformer'
 if model_type == 'CNN':
     model = CNN().to(device)
 else:
-    model = transformer
+    model = transformer.to(device)
+
 optimizer = torch.optim.SGD(model.parameters(), lr=LR)
-criterion = nn.BCEWithLogitsLoss()
+criterion = nn.BCELoss()
 
 # %% -------------------------------------- Training Loop ----------------------------------------------------------
 print("Starting training loop...")
@@ -264,13 +269,13 @@ for epoch in range(N_EPOCHS):
         loss.backward()
         train_losses.append(loss.item())
         #accuracy = multi_accuracy_score(output, labels)
-        THRESHOLD = 0.5
         preds = output.detach().cpu().numpy()
-        preds[preds >= THRESHOLD] = 1
-        preds[preds < THRESHOLD] = 0
+        new_preds = np.zeros(preds.shape)
+        for i in range(len(preds)):
+            new_preds[i][np.argmax(preds[i])] = 1
         accuracy = accuracy_score(y_true=labels.cpu().numpy().astype(int),
-                                      y_pred=preds.astype(int))
-        train_acc += accuracy
+                                      y_pred=new_preds.astype(int))
+        train_acc.append(accuracy)
         optimizer.step()
 
     val_losses = []
@@ -281,14 +286,13 @@ for epoch in range(N_EPOCHS):
         output = model(inputs)
         val_loss = criterion(output, labels.float())
         val_losses.append(val_loss.item())
-        #accuracy = multi_accuracy_score(output, labels)
-        THRESHOLD = 0.5
         preds = output.detach().cpu().numpy()
-        preds[preds >= THRESHOLD] = 1
-        preds[preds < THRESHOLD] = 0
+        new_preds = np.zeros(preds.shape)
+        for i in range(len(preds)):
+            new_preds[i][np.argmax(preds[i])] = 1
         accuracy = accuracy_score(y_true=labels.cpu().numpy().astype(int),
-                                      y_pred=preds.astype(int))
-        val_acc += accuracy
+                                      y_pred=new_preds.astype(int))
+        val_acc.append(accuracy)
 
     epoch_train_loss = np.mean(train_losses)
     epoch_val_loss = np.mean(val_losses)
