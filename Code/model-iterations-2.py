@@ -3,13 +3,14 @@
 
 # imports
 import torch.nn as nn
-from torchvision import datasets, transforms
+from torchvision import datasets, transforms, models
 import os
 import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import torch
+from sklearn.metrics import accuracy_score
 
 # %% --------------------------------------- Set-Up --------------------------------------------------------------------
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -20,9 +21,10 @@ torch.backends.cudnn.benchmark = False
 PATH = os.getcwd() + '/Data/Vegetable Images'
 CHANNEL = 3
 SIZE = 224 # height and width
+n_classes = 15
 
 # %% ----------------------------------- Hyper Parameters --------------------------------------------------------------
-LR = 1e-2  # testing larger LR from 0.01 to 0.03 (does not work, goes to 0)
+LR = 1e-4  # testing larger LR from 0.01 to 0.03 (does not work, goes to 0)
 N_EPOCHS = 5
 BATCH_SIZE = 12
 DROPOUT = 0.5
@@ -72,22 +74,6 @@ train_df = getFrame(train_dir).reset_index(drop=True)
 val_df = getFrame(val_dir).reset_index(drop=True)
 test_df = getFrame(test_dir).reset_index(drop=True)
 
-# images with error: remove
-#1 PIL.UnidentifiedImageError: cannot identify image file '/home/ubuntu/Final-Project-Group4/Code/Data/Vegetable Images/train/Carrot/0214.jpg'
-find = train_df[ (train_df['image'] == '0214.jpg') & (train_df['label_string'] == 'Carrot')].index
-train_df.drop(index=find, inplace=True)
-train_df.reset_index(drop=True)
-
-#2 PIL.UnidentifiedImageError: cannot identify image file '/home/ubuntu/Final-Project-Group4/Code/Data/Vegetable Images/train/Carrot/0475.jpg'
-find = train_df[ (train_df['image'] == '0475.jpg') & (train_df['label_string'] == 'Carrot')].index
-train_df.drop(index=find, inplace=True)
-train_df.reset_index(drop=True)
-
-#3 PIL.UnidentifiedImageError: cannot identify image file '/home/ubuntu/Final-Project-Group4/Code/Data/Vegetable Images/train/Bitter_Gourd/0723.jpg'
-find = train_df[ (train_df['image'] == '0723.jpg') & (train_df['label_string'] == 'Bitter_Gourd')].index
-train_df.drop(index=find, inplace=True)
-train_df.reset_index(drop=True)
-
 # create dataloader
 class ImagesDataset(Dataset):
     """
@@ -114,14 +100,10 @@ class ImagesDataset(Dataset):
         img_name = self.data_frame.iloc[idx]['image']
         img_path = os.path.join(self.root_dir, label_name, img_name)
         image = Image.open(img_path)
-        getBytes = transforms.ToTensor()
-        imgTensor = getBytes(image)
-        R_mean, G_mean, B_mean = (torch.mean(imgTensor, dim = [1,2])).numpy()
-        R_std, G_std, B_std = (torch.std(imgTensor, dim = [1,2])).numpy()
 
         if self.transform:
             image = self.transform(image)
-            norm = transforms.Normalize([R_mean, G_mean, B_mean], [R_std, G_std, B_std])
+            norm = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             image = norm(image)
         return (image, label)
 
@@ -130,7 +112,7 @@ train = ImagesDataset(
     data_frame=train_df,
     root_dir=train_dir,
     transform=transforms.Compose([
-        transforms.RandomResizedCrop(SIZE),
+        transforms.RandomResizedCrop((224,224)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
     ])
@@ -140,8 +122,7 @@ validation = ImagesDataset(
     data_frame=val_df,
     root_dir=val_dir,
     transform=transforms.Compose([
-        transforms.RandomResizedCrop(SIZE),
-        transforms.RandomHorizontalFlip(),
+        transforms.Resize((224,224)),
         transforms.ToTensor()
     ])
 )
@@ -150,8 +131,7 @@ test = ImagesDataset(
     data_frame=test_df,
     root_dir=test_dir,
     transform=transforms.Compose([
-        transforms.RandomResizedCrop(SIZE),
-        transforms.RandomHorizontalFlip(),
+        transforms.Resize((224,224)),
         transforms.ToTensor()
     ])
 )
@@ -248,11 +228,23 @@ class CNN(nn.Module):
         x = self.act(self.linear1(x.view(len(x), -1)))
         x = self.linear1_bn(self.act(self.linear3(self.act(self.linear2(x)))))
         return x
+# %% -------------------------------------- Training Prep ----------------------------------------------------------
+
+transformer = models.resnet101(pretrained=True)
+for param in transformer.parameters():
+    param.requires_grad = False
+for param in transformer.layer4.parameters():
+    param.requires_grad = True
+transformer.fc = nn.Linear(transformer.fc.in_features, n_classes)
 
 # %% -------------------------------------- Training Prep ----------------------------------------------------------
-model = CNN().to(device)
+model_type = 'transformer'
+if model_type == 'CNN':
+    model = CNN().to(device)
+else:
+    model = transformer
 optimizer = torch.optim.SGD(model.parameters(), lr=LR)
-criterion = nn.CrossEntropyLoss()
+criterion = nn.BCEWithLogitsLoss()
 
 # %% -------------------------------------- Training Loop ----------------------------------------------------------
 print("Starting training loop...")
@@ -262,7 +254,7 @@ epoch_tr_acc, epoch_vl_acc = [], []
 
 for epoch in range(N_EPOCHS):
     train_losses = []
-    train_acc = 0.0
+    train_acc = []
     model.train()
     for inputs, labels in train_loader:
         inputs, labels = inputs.to(device), labels.to(device)
@@ -271,29 +263,41 @@ for epoch in range(N_EPOCHS):
         loss = criterion(output, labels.float())
         loss.backward()
         train_losses.append(loss.item())
-        accuracy = multi_accuracy_score(output, labels)
+        #accuracy = multi_accuracy_score(output, labels)
+        THRESHOLD = 0.5
+        preds = output.detach().cpu().numpy()
+        preds[preds >= THRESHOLD] = 1
+        preds[preds < THRESHOLD] = 0
+        accuracy = accuracy_score(y_true=labels.cpu().numpy().astype(int),
+                                      y_pred=preds.astype(int))
         train_acc += accuracy
         optimizer.step()
 
     val_losses = []
-    val_acc = 0.0
+    val_acc = []
     model.eval()
     for inputs, labels in valid_loader:
         inputs, labels = inputs.to(device), labels.to(device)
         output = model(inputs)
         val_loss = criterion(output, labels.float())
         val_losses.append(val_loss.item())
-        accuracy = multi_accuracy_score(output, labels)
+        #accuracy = multi_accuracy_score(output, labels)
+        THRESHOLD = 0.5
+        preds = output.detach().cpu().numpy()
+        preds[preds >= THRESHOLD] = 1
+        preds[preds < THRESHOLD] = 0
+        accuracy = accuracy_score(y_true=labels.cpu().numpy().astype(int),
+                                      y_pred=preds.astype(int))
         val_acc += accuracy
 
     epoch_train_loss = np.mean(train_losses)
     epoch_val_loss = np.mean(val_losses)
-    epoch_train_acc = train_acc / len(train_loader.dataset)
-    epoch_val_acc = val_acc / len(valid_loader.dataset)
+    epoch_train_acc = np.mean(train_acc)
+    epoch_val_acc = np.mean(val_acc)
     epoch_tr_loss.append(epoch_train_loss)
     epoch_vl_loss.append(epoch_val_loss)
     epoch_tr_acc.append(epoch_train_acc)
     epoch_vl_acc.append(epoch_val_acc)
     print(f'Epoch {epoch + 1}')
     print(f'train_loss : {epoch_train_loss} val_loss : {epoch_val_loss}')
-    print(f'train_accuracy : {epoch_train_acc * 100} val_accuracy : {epoch_val_acc * 100}')
+    print(f'train_accuracy : {epoch_train_acc} val_accuracy : {epoch_val_acc}')
