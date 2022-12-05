@@ -231,11 +231,6 @@ class CNN(nn.Module):
 # %% -------------------------------------- Training Prep ----------------------------------------------------------
 # Note: currently only the transformer works
 transformer = models.resnet34(pretrained=True)
-for param in transformer.parameters():
-    param.requires_grad = False
-for param in transformer.layer4.parameters():
-    param.requires_grad = True
-
 transformer.fc = nn.Sequential(
     nn.Linear(transformer.fc.in_features, n_classes),
     nn.Softmax(dim=1)
@@ -305,3 +300,21 @@ for epoch in range(N_EPOCHS):
     print(f'Epoch {epoch + 1}')
     print(f'train_loss : {epoch_train_loss} val_loss : {epoch_val_loss}')
     print(f'train_accuracy : {epoch_train_acc} val_accuracy : {epoch_val_acc}')
+
+
+# %% -------------------------------------- Interpretability Code ----------------------------------------------------------
+#1: SHAP. Code from https://towardsdatascience.com/pytorch-shap-explainable-convolutional-neural-networks-ece5f04c374f
+
+import shap
+batch = next(iter(test_loader))
+images, labels = batch
+
+background = images[:60].to(device)
+test_images = images[60:63].to(device)
+
+e = shap.DeepExplainer(model, background)
+shap_values = e.shap_values(test_images)
+
+shap_numpy = [np.swapaxes(np.swapaxes(s, 1, -1), 1, 2) for s in shap_values]
+test_numpy = np.swapaxes(np.swapaxes(test_images.cpu().numpy(), 1, -1), 1, 2)
+shap.image_plot(shap_numpy, -test_numpy)
