@@ -260,3 +260,7 @@ for epoch in range(N_EPOCHS):
     print(f'Epoch {epoch + 1}')
     print(f'train_loss : {epoch_train_loss} val_loss : {epoch_val_loss}')
     print(f'train_accuracy : {epoch_train_acc * 100} val_accuracy : {epoch_val_acc * 100}')
+
+# End results was
+# train_loss : 2.6885661642074585 val_loss : 2.737540114402771
+# train_accuracy : 0.2133760154247284 val_accuracy : 0.19999998807907104
