@@ -11,6 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import torch
 from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
 
 # %% --------------------------------------- Set-Up --------------------------------------------------------------------
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -23,11 +24,14 @@ CHANNEL = 3
 SIZE = 224 # height and width
 n_classes = 15
 
+#Says we want to save the best model during training loop
+SAVE_MODEL = True
+
 # %% ----------------------------------- Hyper Parameters --------------------------------------------------------------
-LR = 1e-4  # testing larger LR from 0.01 to 0.03 (does not work, goes to 0)
-N_EPOCHS = 5
+LR = 1e-3
+N_EPOCHS = 15
 BATCH_SIZE = 64
-DROPOUT = 0.5
+DROPOUT = 0.25
 
 # %% ----------------------------------- Helper Functions --------------------------------------------------------------
 def multi_accuracy_score(y_pred, y_true):
@@ -160,7 +164,7 @@ class CNN(nn.Module):
         self.thir_outchannels = 64
         self.four_outchannels = 128
         self.fif_outchannels = 256
-        self.dropout = nn.Dropout(0.25)
+        self.dropout = nn.Dropout(DROPOUT)
 
         # Convolution 1
         self.conv1 = nn.Conv2d(in_channels=self.init_inchannels, out_channels=self.init_outchannels, kernel_size=self.kernel, stride=self.stride, padding=self.pad)
@@ -256,6 +260,10 @@ print("Starting training loop...")
 valid_loss_min = np.Inf
 epoch_tr_loss, epoch_vl_loss = [], []
 epoch_tr_acc, epoch_vl_acc = [], []
+met_test = 0
+met_test_best = 0
+
+
 
 for epoch in range(N_EPOCHS):
     train_losses = []
@@ -302,6 +310,33 @@ for epoch in range(N_EPOCHS):
     epoch_vl_loss.append(epoch_val_loss)
     epoch_tr_acc.append(epoch_train_acc)
     epoch_vl_acc.append(epoch_val_acc)
+    #prints the epoch, the training and validation accuracy and loss
     print(f'Epoch {epoch + 1}')
     print(f'train_loss : {epoch_train_loss} val_loss : {epoch_val_loss}')
     print(f'train_accuracy : {epoch_train_acc} val_accuracy : {epoch_val_acc}')
+
+    #Sets the prioritized metric to be the validation accuracy
+    met_test = epoch_val_acc
+
+    #Saves the best model (assuming SAVE_MODEL=True at start): Code based on Exam 2 model saving code
+    if met_test > met_test_best and SAVE_MODEL:
+           torch.save(model.state_dict(), "model_nn.pt")
+           print("The model has been saved!")
+           met_test_best = met_test
+
+#Plots test vs train accuracy by epoch number
+plt.plot(range(epoch+1), epoch_tr_acc, label = "Train")
+plt.plot(range(epoch+1), epoch_vl_acc, label = "Test")
+plt.legend()
+plt.show()
+plt.savefig('accuracy_fig.png', bbox_inches = 'tight')
+
+#Clears plot so loss doesn't also show accuracy
+plt.clf()
+
+#Plots test vs train loss by epoch number
+plt.plot(range(epoch+1), epoch_tr_loss, label = "Train")
+plt.plot(range(epoch+1), epoch_vl_loss, label = "Test")
+plt.legend()
+plt.show()
+plt.savefig('loss_fig.png', bbox_inches = 'tight')
