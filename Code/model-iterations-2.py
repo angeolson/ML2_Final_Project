@@ -29,7 +29,7 @@ SAVE_MODEL = True
 
 # %% ----------------------------------- Hyper Parameters --------------------------------------------------------------
 LR = 1e-3
-N_EPOCHS = 15
+N_EPOCHS = 30
 BATCH_SIZE = 64
 DROPOUT = 0.25
 
