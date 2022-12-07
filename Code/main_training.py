@@ -251,6 +251,7 @@ optimizer = torch.optim.SGD(model.parameters(), lr=LR)
 criterion = nn.BCELoss()
 
 # %% -------------------------------------- Training Loop ----------------------------------------------------------
+os.chdir(CODE_PATH)
 print("Starting training loop...")
 valid_loss_min = np.Inf
 epoch_tr_loss, epoch_vl_loss = [], []

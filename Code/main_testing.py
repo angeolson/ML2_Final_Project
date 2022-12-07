@@ -12,8 +12,17 @@ from PIL import Image
 import torch
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
+import argparse
 
 # %% --------------------------------------- Set-Up --------------------------------------------------------------------
+# parser = argparse.ArgumentParser()
+# parser.add_argument("--path", default=None, type=str, required=True)  # Path of file
+# args = parser.parse_args()
+# PATH = args.path
+PATH = '/home/ubuntu/Final-Project-Group4'
+DATA_PATH = PATH + os.path.sep + 'Data/Vegetable Images'
+CODE_PATH = PATH + os.path.sep + 'Code'
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(42)
 np.random.seed(42)
@@ -23,13 +32,9 @@ PATH = os.getcwd() + '/Data/Vegetable Images'
 CHANNEL = 3
 SIZE = 224 # height and width
 n_classes = 15
-
-#Says we want to save the best model during training loop
-SAVE_MODEL = True
+model_type = 'transformer'
 
 # %% ----------------------------------- Hyper Parameters --------------------------------------------------------------
-LR = 1e-3
-N_EPOCHS = 30
 BATCH_SIZE = 64
 DROPOUT = 0.25
 
@@ -49,9 +54,8 @@ def multi_accuracy_score(y_pred, y_true):
 
 # %% -------------------------------------- Set Data ------------------------------------------------------------------
 # create dataframes for train, val, and test data:
-train_dir = PATH + '/train'
-val_dir = PATH + '/validation'
-test_dir = PATH + '/test'
+
+test_dir = DATA_PATH + '/test'
 
 def getFrame(filepath):
     '''
@@ -72,8 +76,6 @@ def getFrame(filepath):
     return encoded
 
 # create splits and encode:
-train_df = getFrame(train_dir).reset_index(drop=True)
-val_df = getFrame(val_dir).reset_index(drop=True)
 test_df = getFrame(test_dir).reset_index(drop=True)
 
 # create dataloader
@@ -109,26 +111,6 @@ class ImagesDataset(Dataset):
             image = norm(image)
         return (image, label)
 
-
-train = ImagesDataset(
-    data_frame=train_df,
-    root_dir=train_dir,
-    transform=transforms.Compose([
-        transforms.RandomResizedCrop((224,224)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor()
-    ])
-)
-
-validation = ImagesDataset(
-    data_frame=val_df,
-    root_dir=val_dir,
-    transform=transforms.Compose([
-        transforms.Resize((224,224)),
-        transforms.ToTensor()
-    ])
-)
-
 test = ImagesDataset(
     data_frame=test_df,
     root_dir=test_dir,
@@ -139,8 +121,6 @@ test = ImagesDataset(
 )
 
 # set to data loaders
-train_loader = DataLoader(train, batch_size=BATCH_SIZE, drop_last=True, shuffle=True)
-valid_loader = DataLoader(validation, batch_size=BATCH_SIZE, drop_last=True)
 test_loader = DataLoader(test, batch_size=BATCH_SIZE, drop_last=True)
 
 # %% -------------------------------------- CNN Class ------------------------------------------------------------------
@@ -244,97 +224,47 @@ transformer.fc = nn.Sequential(
                                )
 
 # %% -------------------------------------- Training Prep ----------------------------------------------------------
-model_type = 'transformer'
 if model_type == 'CNN':
     model = CNN().to(device)
 else:
     model = transformer.to(device)
 
+model.load_state_dict(torch.load('model_nn.pt', map_location=device))
+model.to(device)
+
 optimizer = torch.optim.SGD(model.parameters(), lr=LR)
 criterion = nn.BCELoss()
 
-# %% -------------------------------------- Training Loop ----------------------------------------------------------
+# %% -------------------------------------- Testing Loop ----------------------------------------------------------
 print("Starting training loop...")
-valid_loss_min = np.Inf
-epoch_tr_loss, epoch_vl_loss = [], []
-epoch_tr_acc, epoch_vl_acc = [], []
 met_test = 0
 met_test_best = 0
 
+test_losses = []
+test_acc = []
+final_pred_labels = []
+final_real_labels = []
+model.eval()
+for inputs, labels in test_loader:
+    inputs, labels = inputs.to(device), labels.to(device)
+    output = model(inputs)
+    test_loss = criterion(output, labels.float())
+    test_losses.append(test_loss.item())
+    preds = output.detach().cpu().numpy()
+    new_preds = np.zeros(preds.shape)
+    for i in range(len(preds)):
+        new_preds[i][np.argmax(preds[i])] = 1
+    accuracy = accuracy_score(y_true=labels.cpu().numpy().astype(int),
+                                  y_pred=new_preds.astype(int))
+    test_acc.append(accuracy)
+    for i in range(len(preds)):
+        result_list = [e for e in preds[i]]
+        label_list = [e for e in labels.cpu().numpy()[i]]
+        final_pred_labels.append(result_list)
+        final_real_labels.append(label_list)
 
-
-for epoch in range(N_EPOCHS):
-    train_losses = []
-    train_acc = []
-    model.train()
-    for inputs, labels in train_loader:
-        inputs, labels = inputs.to(device), labels.to(device)
-        model.zero_grad()
-        output = model(inputs)
-        loss = criterion(output, labels.float())
-        loss.backward()
-        train_losses.append(loss.item())
-        #accuracy = multi_accuracy_score(output, labels)
-        preds = output.detach().cpu().numpy()
-        new_preds = np.zeros(preds.shape)
-        for i in range(len(preds)):
-            new_preds[i][np.argmax(preds[i])] = 1
-        accuracy = accuracy_score(y_true=labels.cpu().numpy().astype(int),
-                                      y_pred=new_preds.astype(int))
-        train_acc.append(accuracy)
-        optimizer.step()
-
-    val_losses = []
-    val_acc = []
-    model.eval()
-    for inputs, labels in valid_loader:
-        inputs, labels = inputs.to(device), labels.to(device)
-        output = model(inputs)
-        val_loss = criterion(output, labels.float())
-        val_losses.append(val_loss.item())
-        preds = output.detach().cpu().numpy()
-        new_preds = np.zeros(preds.shape)
-        for i in range(len(preds)):
-            new_preds[i][np.argmax(preds[i])] = 1
-        accuracy = accuracy_score(y_true=labels.cpu().numpy().astype(int),
-                                      y_pred=new_preds.astype(int))
-        val_acc.append(accuracy)
-
-    epoch_train_loss = np.mean(train_losses)
-    epoch_val_loss = np.mean(val_losses)
-    epoch_train_acc = np.mean(train_acc)
-    epoch_val_acc = np.mean(val_acc)
-    epoch_tr_loss.append(epoch_train_loss)
-    epoch_vl_loss.append(epoch_val_loss)
-    epoch_tr_acc.append(epoch_train_acc)
-    epoch_vl_acc.append(epoch_val_acc)
-    #prints the epoch, the training and validation accuracy and loss
-    print(f'Epoch {epoch + 1}')
-    print(f'train_loss : {epoch_train_loss} val_loss : {epoch_val_loss}')
-    print(f'train_accuracy : {epoch_train_acc} val_accuracy : {epoch_val_acc}')
-
-    #Sets the prioritized metric to be the validation accuracy
-    met_test = epoch_val_acc
-
-    #Saves the best model (assuming SAVE_MODEL=True at start): Code based on Exam 2 model saving code
-    if met_test > met_test_best and SAVE_MODEL:
-           torch.save(model.state_dict(), "model_nn.pt")
-           print("The model has been saved!")
-           met_test_best = met_test
-
-#Plots test vs train accuracy by epoch number
-plt.plot(range(epoch+1), epoch_tr_acc, label = "Train")
-plt.plot(range(epoch+1), epoch_vl_acc, label = "Test")
-plt.legend()
-plt.show()
-plt.savefig('accuracy_fig.png', bbox_inches = 'tight')
-
-#Clears plot so loss doesn't also show accuracy
-plt.clf()
-
-#Plots test vs train loss by epoch number
-plt.plot(range(epoch+1), epoch_tr_loss, label = "Train")
-plt.plot(range(epoch+1), epoch_vl_loss, label = "Test")
-plt.legend()
-plt.show()
-plt.savefig('loss_fig.png', bbox_inches = 'tight')
+test_loss_av = np.mean(test_losses)
+test_acc_av = np.mean(test_acc)
+print(f'Test Accuracy: {test_acc_av} Test Loss: {test_loss_av}')
+test_df['pred_labels'] = final_pred_labels
+test_df['real_labels'] = final_real_labels
