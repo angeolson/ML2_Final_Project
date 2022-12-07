@@ -231,8 +231,8 @@ class CNN(nn.Module):
 transformer = models.resnet34(pretrained=True)
 for param in transformer.parameters():
     param.requires_grad = False
-# for param in transformer.layer4.parameters():
-#     param.requires_grad = True
+for param in transformer.layer4.parameters():
+    param.requires_grad = True
 
 transformer.fc = nn.Sequential(
     nn.Linear(transformer.fc.in_features, n_classes),

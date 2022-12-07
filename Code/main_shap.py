@@ -284,7 +284,7 @@ _ = viz.visualize_image_attr_multiple(np.transpose(attributions_ig_nt.squeeze().
                                       cmap=default_cmap,
                                       show_colorbar=True)
 
-# Option 3: GradientShap with blank refernce image
+# Option 3: GradientShap with blank (black) reference image
 torch.manual_seed(0)
 np.random.seed(0)
 

@@ -31,7 +31,7 @@ CHANNEL = 3
 SIZE = 224 # height and width
 n_classes = 15
 model_type = 'transformer'
-
+export_data = True
 # %% ----------------------------------- Hyper Parameters --------------------------------------------------------------
 BATCH_SIZE = 64
 DROPOUT = 0.25
@@ -265,3 +265,6 @@ test_acc_av = np.mean(test_acc)
 print(f'Test Accuracy: {test_acc_av} Test Loss: {test_loss_av}')
 test_df['pred_labels'] = final_pred_labels
 test_df['real_labels'] = final_real_labels
+
+if export_data is True:
+    test_df.to_csv('test_predictions.csv')
