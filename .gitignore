@@ -138,3 +138,4 @@ dmypy.json
 # Apple?
 .DS_Store
 Code/Data/.archive(4).zip.icloud
+*.jpg
