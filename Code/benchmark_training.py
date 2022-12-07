@@ -314,7 +314,7 @@ for epoch in range(N_EPOCHS):
 
     #Saves the best model (assuming SAVE_MODEL=True at start): Code based on Exam 2 model saving code
     if met_test > met_test_best and SAVE_MODEL:
-           torch.save(model.state_dict(), "model_main.pt")
+           torch.save(model.state_dict(), "model_benchmark.pt")
            print("The model has been saved!")
            met_test_best = met_test
 

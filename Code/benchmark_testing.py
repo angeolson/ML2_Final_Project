@@ -229,7 +229,7 @@ if model_type == 'CNN':
 else:
     model = transformer.to(device)
 
-model.load_state_dict(torch.load('model_nn.pt', map_location=device))
+model.load_state_dict(torch.load('model_benchmark.pt', map_location=device))
 model.to(device)
 
 criterion = nn.BCELoss()
