@@ -1,6 +1,3 @@
-# purpose: Iterates on the basic-model.py model
-
-
 # imports
 import torch.nn as nn
 from torchvision import datasets, transforms, models
