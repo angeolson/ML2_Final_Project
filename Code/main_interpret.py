@@ -283,7 +283,7 @@ elif option == 'noise':
     integrated_gradients = IntegratedGradients(model)
     noise_tunnel = NoiseTunnel(integrated_gradients)
 
-    attributions_ig_nt = noise_tunnel.attribute(input, nt_samples=5, nt_type='smoothgrad_sq', target=pred_label_idx)
+    attributions_ig_nt = noise_tunnel.attribute(input, nt_samples=4, nt_type='smoothgrad_sq', target=pred_label_idx)
     _ = viz.visualize_image_attr_multiple(np.transpose(attributions_ig_nt.squeeze().cpu().detach().numpy(), (1,2,0)),
                                           np.transpose(image.squeeze().cpu().detach().numpy(), (1,2,0)),
                                           ["original_image", "heat_map"],
