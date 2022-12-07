@@ -234,8 +234,8 @@ class CNN(nn.Module):
 transformer = models.resnet34(pretrained=True)
 for param in transformer.parameters():
     param.requires_grad = False
-for param in transformer.layer4.parameters():
-    param.requires_grad = True
+# for param in transformer.layer4.parameters():
+#     param.requires_grad = True
 
 transformer.fc = nn.Sequential(
     nn.Linear(transformer.fc.in_features, n_classes),
@@ -314,7 +314,7 @@ for epoch in range(N_EPOCHS):
 
     #Saves the best model (assuming SAVE_MODEL=True at start): Code based on Exam 2 model saving code
     if met_test > met_test_best and SAVE_MODEL:
-           torch.save(model.state_dict(), "model_nn.pt")
+           torch.save(model.state_dict(), "model_main.pt")
            print("The model has been saved!")
            met_test_best = met_test
 
@@ -324,7 +324,7 @@ if SAVE_FIGURES is True:
     plt.plot(range(epoch+1), epoch_vl_acc, label = "Test")
     plt.legend()
     plt.show()
-    plt.savefig('accuracy_fig.png', bbox_inches = 'tight')
+    plt.savefig('accuracy_fig_main.png', bbox_inches = 'tight')
 
     #Clears plot so loss doesn't also show accuracy
     plt.clf()
@@ -334,4 +334,4 @@ if SAVE_FIGURES is True:
     plt.plot(range(epoch+1), epoch_vl_loss, label = "Test")
     plt.legend()
     plt.show()
-    plt.savefig('loss_fig.png', bbox_inches = 'tight')
+    plt.savefig('loss_fig_main.png', bbox_inches = 'tight')

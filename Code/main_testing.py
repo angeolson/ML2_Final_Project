@@ -121,7 +121,7 @@ test = ImagesDataset(
 )
 
 # set to data loaders
-test_loader = DataLoader(test, batch_size=BATCH_SIZE, drop_last=True)
+test_loader = DataLoader(test, batch_size=BATCH_SIZE)
 
 # %% -------------------------------------- CNN Class ------------------------------------------------------------------
 class CNN(nn.Module):
@@ -210,7 +210,7 @@ class CNN(nn.Module):
         x = self.act(self.linear1(x.view(len(x), -1)))
         x = self.linear1_bn(self.act(self.linear3(self.act(self.linear2(x)))))
         return x
-# %% -------------------------------------- Training Prep ----------------------------------------------------------
+# %% -------------------------------------- Transformer ----------------------------------------------------------
 # Note: currently only the transformer works
 transformer = models.resnet34(pretrained=True)
 for param in transformer.parameters():
@@ -223,7 +223,7 @@ transformer.fc = nn.Sequential(
     nn.Softmax(dim=1)
                                )
 
-# %% -------------------------------------- Training Prep ----------------------------------------------------------
+# %% -------------------------------------- Testing Prep ----------------------------------------------------------
 if model_type == 'CNN':
     model = CNN().to(device)
 else:
@@ -232,7 +232,6 @@ else:
 model.load_state_dict(torch.load('model_nn.pt', map_location=device))
 model.to(device)
 
-optimizer = torch.optim.SGD(model.parameters(), lr=LR)
 criterion = nn.BCELoss()
 
 # %% -------------------------------------- Testing Loop ----------------------------------------------------------
