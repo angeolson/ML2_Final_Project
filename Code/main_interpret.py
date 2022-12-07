@@ -3,17 +3,15 @@
 
 # imports
 import torch.nn as nn
-from torchvision import datasets, transforms, models
 import os
 import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import torch
-import matplotlib.pyplot as plt
 import argparse
 from matplotlib.colors import LinearSegmentedColormap
-
+import matplotlib.pyplot as plt
 import torchvision
 from torchvision import models
 from torchvision import transforms
@@ -43,6 +41,7 @@ CHANNEL = 3
 SIZE = 224 # height and width
 n_classes = 15
 model_type = 'transformer'
+option = 'noise'
 
 # %% ----------------------------------- Hyper Parameters --------------------------------------------------------------
 BATCH_SIZE = 32
@@ -232,22 +231,24 @@ criterion = nn.BCELoss()
 
 # %% -------------------------------------- Interpretation: SHAP ----------------------------------------------------------
 # https://shap.readthedocs.io/en/latest/example_notebooks/image_examples/image_classification/PyTorch%20Deep%20Explainer%20MNIST%20example.html
-import shap
-batch = next(iter(test_loader))
-images, labels = batch
-
-background = images[:20].to(device)
-test_images = images[20:25].to(device)
-
-torch.cuda.empty_cache()
-e = shap.DeepExplainer(model, background)
-shap_values = e.shap_values(test_images)
-
-shap_numpy = [np.swapaxes(np.swapaxes(s, 1, -1), 1, 2) for s in shap_values]
-test_numpy = np.swapaxes(np.swapaxes(test_images.cpu().numpy(), 1, -1), 1, 2)
-shap.image_plot(shap_numpy, -test_numpy)
+# import shap
+# batch = next(iter(test_loader))
+# images, labels = batch
+#
+# background = images[:29].to(device)
+# test_images = images[29:32].to(device)
+#
+# torch.cuda.empty_cache()
+# e = shap.DeepExplainer(model, background)
+# shap_values = e.shap_values(test_images)
+#
+# shap_numpy = [np.swapaxes(np.swapaxes(s, 1, -1), 1, 2) for s in shap_values]
+# test_numpy = np.swapaxes(np.swapaxes(test_images.cpu().numpy(), 1, -1), 1, 2)
+# shap.image_plot(shap_numpy, -test_numpy)
 
 # %% -------------------------------------- Interpretation: Integrated Gradients ----------------------------------------------------------
+# map label indexes back to a class name
+classes_dict = {0: 'Bean', 1: 'Bitter_Gourd', 2: 'Bottle_Gourd', 3: 'Brinjal', 4: 'Broccoli', 5: 'Cabbage', 6: 'Capsicum', 7: 'Carrot', 8: 'Cauliflower', 9: 'Cucumber', 10: 'Papaya', 11: 'Potato', 12: 'Pumpkin', 13: 'Radish', 14: 'Tomato'}
 
 # plot an example of an image
 image, label = test[0]
@@ -255,52 +256,61 @@ input = image.unsqueeze(0).to(device)
 output = model(input)
 prediction_score, pred_label_idx = torch.topk(output, 1) # gets prediction and index of prediction
 pred_label_idx.squeeze() # changes size
-
-# Option I: integrated Gradients
-integrated_gradients = IntegratedGradients(model)
-attributions_ig = integrated_gradients.attribute(input, target=pred_label_idx, n_steps=100)
-
+label_int = pred_label_idx.squeeze().cpu().numpy().item()
+label_string = classes_dict[label_int]
 default_cmap = LinearSegmentedColormap.from_list('custom blue',
-                                                 [(0, '#ffffff'),
-                                                  (0.25, '#000000'),
-                                                  (1, '#000000')], N=224)
+                                                     [(0, '#ffffff'),
+                                                      (0.25, '#000000'),
+                                                      (1, '#000000')], N=224)
+if option == 'ig':
+    # Option I: integrated Gradients
+    integrated_gradients = IntegratedGradients(model)
+    attributions_ig = integrated_gradients.attribute(input, target=pred_label_idx, n_steps=100)
 
-_ = viz.visualize_image_attr(np.transpose(attributions_ig.squeeze().cpu().detach().numpy(), (1,2,0)),
-                             np.transpose(image.squeeze().cpu().detach().numpy(), (1,2,0)),
-                             method='heat_map',
-                             cmap=default_cmap,
-                             show_colorbar=True,
-                             sign='positive',
-                             outlier_perc=1)
 
+
+    _ = viz.visualize_image_attr(np.transpose(attributions_ig.squeeze().cpu().detach().numpy(), (1,2,0)),
+                                 np.transpose(image.squeeze().cpu().detach().numpy(), (1,2,0)),
+                                 method='heat_map',
+                                 cmap=default_cmap,
+                                 show_colorbar=True,
+                                 sign='positive',
+                                 outlier_perc=1)
+    plt.savefig('IG.png', bbox_inches = 'tight')
+
+elif option == 'noise':
 # Option 2: Integrated Gradients with noise tunnel
-noise_tunnel = NoiseTunnel(integrated_gradients)
+    integrated_gradients = IntegratedGradients(model)
+    noise_tunnel = NoiseTunnel(integrated_gradients)
 
-attributions_ig_nt = noise_tunnel.attribute(input, nt_samples=5, nt_type='smoothgrad_sq', target=pred_label_idx)
-_ = viz.visualize_image_attr_multiple(np.transpose(attributions_ig_nt.squeeze().cpu().detach().numpy(), (1,2,0)),
-                                      np.transpose(image.squeeze().cpu().detach().numpy(), (1,2,0)),
-                                      ["original_image", "heat_map"],
-                                      ["all", "positive"],
-                                      cmap=default_cmap,
-                                      show_colorbar=True)
+    attributions_ig_nt = noise_tunnel.attribute(input, nt_samples=5, nt_type='smoothgrad_sq', target=pred_label_idx)
+    _ = viz.visualize_image_attr_multiple(np.transpose(attributions_ig_nt.squeeze().cpu().detach().numpy(), (1,2,0)),
+                                          np.transpose(image.squeeze().cpu().detach().numpy(), (1,2,0)),
+                                          ["original_image", "heat_map"],
+                                          ["all", "positive"],
+                                          cmap=default_cmap,
+                                          show_colorbar=True)
+    plt.savefig('IG_noise.png', bbox_inches = 'tight')
 
-# Option 3: GradientShap with blank (black) reference image
-torch.manual_seed(0)
-np.random.seed(0)
+elif option == 'shap':
+    # Option 3: GradientShap with blank (black) reference image
+    torch.manual_seed(0)
+    np.random.seed(0)
 
-gradient_shap = GradientShap(model)
+    gradient_shap = GradientShap(model)
 
-# Defining baseline distribution of images
-rand_img_dist = torch.cat([input * 0, input * 1])
+    # Defining baseline distribution of images
+    rand_img_dist = torch.cat([input * 0, input * 1])
 
-attributions_gs = gradient_shap.attribute(input,
-                                          n_samples=50,
-                                          stdevs=0.0001,
-                                          baselines=rand_img_dist,
-                                          target=pred_label_idx)
-_ = viz.visualize_image_attr_multiple(np.transpose(attributions_gs.squeeze().cpu().detach().numpy(), (1,2,0)),
-                                      np.transpose(image.squeeze().cpu().detach().numpy(), (1,2,0)),
-                                      ["original_image", "heat_map"],
-                                      ["all", "absolute_value"],
-                                      cmap=default_cmap,
-                                      show_colorbar=True)
+    attributions_gs = gradient_shap.attribute(input,
+                                              n_samples=50,
+                                              stdevs=0.0001,
+                                              baselines=rand_img_dist,
+                                              target=pred_label_idx)
+    _ = viz.visualize_image_attr_multiple(np.transpose(attributions_gs.squeeze().cpu().detach().numpy(), (1,2,0)),
+                                          np.transpose(image.squeeze().cpu().detach().numpy(), (1,2,0)),
+                                          ["original_image", "heat_map"],
+                                          ["all", "absolute_value"],
+                                          cmap=default_cmap,
+                                          show_colorbar=True)
+    plt.savefig('IG_shap.png', bbox_inches='tight')
