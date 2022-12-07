@@ -276,7 +276,7 @@ if option == 'ig':
                                  show_colorbar=True,
                                  sign='positive',
                                  outlier_perc=1)
-    plt.savefig('IG.png', bbox_inches = 'tight')
+    _[0].savefig('IG.png', bbox_inches = 'tight')
 
 elif option == 'noise':
 # Option 2: Integrated Gradients with noise tunnel
@@ -290,7 +290,7 @@ elif option == 'noise':
                                           ["all", "positive"],
                                           cmap=default_cmap,
                                           show_colorbar=True)
-    plt.savefig('IG_noise.png', bbox_inches = 'tight')
+    _[0].savefig('IG_noise.png', bbox_inches = 'tight')
 
 elif option == 'shap':
     # Option 3: GradientShap with blank (black) reference image
@@ -313,4 +313,4 @@ elif option == 'shap':
                                           ["all", "absolute_value"],
                                           cmap=default_cmap,
                                           show_colorbar=True)
-    plt.savefig('IG_shap.png', bbox_inches='tight')
+    _[0].savefig('IG_shap.png', bbox_inches='tight')
