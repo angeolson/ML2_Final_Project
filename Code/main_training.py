@@ -12,21 +12,29 @@ from PIL import Image
 import torch
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
+import argparse
 
 # %% --------------------------------------- Set-Up --------------------------------------------------------------------
+# parser = argparse.ArgumentParser()
+# parser.add_argument("--path", default=None, type=str, required=True)  # Path of file
+# args = parser.parse_args()
+# PATH = args.path
+PATH = '/home/ubuntu/Final-Project-Group4'
+DATA_PATH = PATH + os.path.sep + 'Data/Vegetable Images'
+CODE_PATH = PATH + os.path.sep + 'Code'
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(42)
 np.random.seed(42)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-PATH = os.getcwd() + '/Data/Vegetable Images'
 CHANNEL = 3
 SIZE = 224 # height and width
 n_classes = 15
+model_type = 'transformer' # options: transformer or CNN
 
 SAVE_MODEL = True #Says we want to save the best model during training loop
 SAVE_FIGURES = True
-
 
 # %% ----------------------------------- Hyper Parameters --------------------------------------------------------------
 LR = 1e-3
@@ -50,8 +58,8 @@ def multi_accuracy_score(y_pred, y_true):
 
 # %% -------------------------------------- Set Data ------------------------------------------------------------------
 # create dataframes for train, val, and test data:
-train_dir = PATH + '/train'
-val_dir = PATH + '/validation'
+train_dir = DATA_PATH + '/train'
+val_dir = DATA_PATH + '/validation'
 
 def getFrame(filepath):
     '''
@@ -234,7 +242,6 @@ transformer.fc = nn.Sequential(
     nn.Softmax(dim=1)
                                )
 # %% -------------------------------------- Transformer Model ----------------------------------------------------------
-model_type = 'transformer'
 if model_type == 'CNN':
     model = CNN().to(device)
 else:
