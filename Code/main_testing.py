@@ -9,15 +9,14 @@ from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import torch
 from sklearn.metrics import accuracy_score
-import matplotlib.pyplot as plt
 import argparse
 
 # %% --------------------------------------- Set-Up --------------------------------------------------------------------
-# parser = argparse.ArgumentParser()
-# parser.add_argument("--path", default=None, type=str, required=True)  # Path of file
-# args = parser.parse_args()
-# PATH = args.path
-PATH = '/home/ubuntu/Final-Project-Group4'
+parser = argparse.ArgumentParser()
+parser.add_argument("--path", default=None, type=str, required=True)  # Path of file
+args = parser.parse_args()
+PATH = args.path
+# PATH = '/home/ubuntu/Final-Project-Group4'
 DATA_PATH = PATH + os.path.sep + 'Data/Vegetable Images'
 CODE_PATH = PATH + os.path.sep + 'Code'
 
@@ -233,7 +232,7 @@ model.to(device)
 criterion = nn.BCELoss()
 
 # %% -------------------------------------- Testing Loop ----------------------------------------------------------
-print("Starting training loop...")
+print("Starting testing loop...")
 met_test = 0
 met_test_best = 0
 
