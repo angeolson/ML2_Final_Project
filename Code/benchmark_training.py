@@ -20,7 +20,7 @@ import argparse
 # args = parser.parse_args()
 # PATH = args.path
 PATH = '/home/ubuntu/Final-Project-Group4'
-DATA_PATH = PATH + os.path.sep + 'Data/Vegetable Images'
+DATA_PATH = PATH + os.path.sep + 'Code/Data/Vegetable Images'
 CODE_PATH = PATH + os.path.sep + 'Code'
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -31,7 +31,7 @@ torch.backends.cudnn.benchmark = False
 CHANNEL = 3
 SIZE = 224 # height and width
 n_classes = 15
-model_type = 'transformer' # options: transformer or CNN
+model_type = 'CNN' # options: transformer or CNN
 
 SAVE_MODEL = True #Says we want to save the best model during training loop
 SAVE_FIGURES = True
@@ -148,7 +148,7 @@ class CNN(nn.Module):
         self.init_inchannels = CHANNEL
         self.init_hw = SIZE
         self.init_outchannels = 16
-        self.kernel = 3 # Testing kernel size of 4 instead of 3
+        self.kernel = 3
         self.pool_kernel = 2
         self.stride = 1
         self.pad = 1
@@ -324,7 +324,7 @@ if SAVE_FIGURES is True:
     plt.plot(range(epoch+1), epoch_vl_acc, label = "Test")
     plt.legend()
     plt.show()
-    plt.savefig('accuracy_fig_main.png', bbox_inches = 'tight')
+    plt.savefig('accuracy_fig_benchmark.png', bbox_inches = 'tight')
 
     #Clears plot so loss doesn't also show accuracy
     plt.clf()
@@ -334,4 +334,4 @@ if SAVE_FIGURES is True:
     plt.plot(range(epoch+1), epoch_vl_loss, label = "Test")
     plt.legend()
     plt.show()
-    plt.savefig('loss_fig_main.png', bbox_inches = 'tight')
+    plt.savefig('loss_fig_benchmark.png', bbox_inches = 'tight')
