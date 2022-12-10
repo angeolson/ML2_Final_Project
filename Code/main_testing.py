@@ -244,6 +244,8 @@ model.eval()
 for inputs, labels in test_loader:
     inputs, labels = inputs.to(device), labels.to(device)
     output = model(inputs)
+    print(output.shape)
+    print(labels.float().shape)
     test_loss = criterion(output, labels.float())
     test_losses.append(test_loss.item())
     preds = output.detach().cpu().numpy()
@@ -266,4 +268,4 @@ test_df['pred_labels'] = final_pred_labels
 test_df['real_labels'] = final_real_labels
 
 if export_data is True:
-    test_df.to_csv('test_predictions.csv')
+    test_df.to_csv('main_test_predictions.csv')

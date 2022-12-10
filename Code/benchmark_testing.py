@@ -32,8 +32,8 @@ PATH = os.getcwd() + '/Data/Vegetable Images'
 CHANNEL = 3
 SIZE = 224 # height and width
 n_classes = 15
-model_type = 'transformer'
-
+model_type = 'CNN'
+export_data = True
 # %% ----------------------------------- Hyper Parameters --------------------------------------------------------------
 BATCH_SIZE = 64
 DROPOUT = 0.25
@@ -211,7 +211,6 @@ class CNN(nn.Module):
         x = self.linear1_bn(self.act(self.linear3(self.act(self.linear2(x)))))
         return x
 # %% -------------------------------------- Transformer ----------------------------------------------------------
-# Note: currently only the transformer works
 transformer = models.resnet34(pretrained=True)
 for param in transformer.parameters():
     param.requires_grad = False
@@ -267,3 +266,6 @@ test_acc_av = np.mean(test_acc)
 print(f'Test Accuracy: {test_acc_av} Test Loss: {test_loss_av}')
 test_df['pred_labels'] = final_pred_labels
 test_df['real_labels'] = final_real_labels
+
+if export_data is True:
+    test_df.to_csv('benchmark_test_predictions.csv')
