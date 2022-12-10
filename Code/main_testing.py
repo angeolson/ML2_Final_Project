@@ -25,7 +25,7 @@ torch.manual_seed(42)
 np.random.seed(42)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-PATH = os.getcwd() + '/Data/Vegetable Images'
+
 CHANNEL = 3
 SIZE = 224 # height and width
 n_classes = 15

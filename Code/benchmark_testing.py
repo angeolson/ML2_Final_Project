@@ -28,7 +28,6 @@ torch.manual_seed(42)
 np.random.seed(42)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-PATH = os.getcwd() + '/Data/Vegetable Images'
 CHANNEL = 3
 SIZE = 224 # height and width
 n_classes = 15
@@ -143,6 +142,7 @@ class CNN(nn.Module):
         self.four_outchannels = 128
         self.fif_outchannels = 256
         self.dropout = nn.Dropout(DROPOUT)
+        self.softmax = nn.Softmax(dim=1)
 
         # Convolution 1
         self.conv1 = nn.Conv2d(in_channels=self.init_inchannels, out_channels=self.init_outchannels, kernel_size=self.kernel, stride=self.stride, padding=self.pad)
@@ -209,6 +209,7 @@ class CNN(nn.Module):
         x = self.pool5(self.convnorm5(self.act(self.conv6(x))))
         x = self.act(self.linear1(x.view(len(x), -1)))
         x = self.linear1_bn(self.act(self.linear3(self.act(self.linear2(x)))))
+        x = self.softmax(x)
         return x
 # %% -------------------------------------- Transformer ----------------------------------------------------------
 transformer = models.resnet34(pretrained=True)
