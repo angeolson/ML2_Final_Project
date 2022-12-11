@@ -11,3 +11,4 @@ Our project is organized as follows:
 * Group-Proposal: this contains the .pdf file of our initial project proposal
 * Final-Group-Presentation: this contaisn the .pdf of our presentation from Dec. 12 2022 
 * Final-Group-Project-Report: this contains the .pdf of the final report from Dec. 12 2022
+* Individual Prokect Reports: these folders contain the individual work and write-ups from group members
