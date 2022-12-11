@@ -1,5 +1,4 @@
 # imports
-import torch.nn as nn
 from torchvision import datasets, transforms, models
 import os
 import numpy as np
@@ -7,18 +6,15 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import torch
-from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import argparse
-import cv2
 from matplotlib import image as mpimg
 
 # %% --------------------------------------- Set-Up --------------------------------------------------------------------
-# parser = argparse.ArgumentParser()
-# parser.add_argument("--path", default=None, type=str, required=True)  # Path of file
-# args = parser.parse_args()
-# PATH = args.path
-PATH = '/home/ubuntu/Final-Project-Group4'
+parser = argparse.ArgumentParser()
+parser.add_argument("--path", default=None, type=str, required=True)  # Path of file
+args = parser.parse_args()
+PATH = args.path
 DATA_PATH = PATH + os.path.sep + 'Code/Data/Vegetable Images'
 CODE_PATH = PATH + os.path.sep + 'Code'
 
@@ -30,9 +26,7 @@ torch.backends.cudnn.benchmark = True
 CHANNEL = 3
 SIZE = 224 # height and width
 n_classes = 15
-model_type = 'CNN' # options: transformer or CNN
 
-SAVE_MODEL = True #Says we want to save the best model during training loop
 SAVE_FIGURES = False #Says we want to save graphs of the accuracy and loss of the training loop
 
 # create dataframes for train, val, and test data:
@@ -117,15 +111,6 @@ class ImagesDataset(Dataset):
 train = ImagesDataset(
     data_frame=train_df,
     root_dir=train_dir
-)
-
-validation = ImagesDataset(
-    data_frame=val_df,
-    root_dir=val_dir,
-    transform=transforms.Compose([
-        transforms.Resize((224,224)),
-        transforms.ToTensor()
-    ])
 )
 
 # set to data loaders

@@ -15,11 +15,10 @@ import matplotlib.pyplot as plt
 import argparse
 
 # %% --------------------------------------- Set-Up --------------------------------------------------------------------
-# parser = argparse.ArgumentParser()
-# parser.add_argument("--path", default=None, type=str, required=True)  # Path of file
-# args = parser.parse_args()
-# PATH = args.path
-PATH = '/home/ubuntu/Final-Project-Group4'
+parser = argparse.ArgumentParser()
+parser.add_argument("--path", default=None, type=str, required=True)  # Path of file
+args = parser.parse_args()
+PATH = args.path
 DATA_PATH = PATH + os.path.sep + 'Code/Data/Vegetable Images'
 CODE_PATH = PATH + os.path.sep + 'Code'
 
@@ -230,7 +229,7 @@ class CNN(nn.Module):
         x = self.softmax(x)
         return x
 # %% -------------------------------------- Training Prep ----------------------------------------------------------
-# Note: currently only the transformer works
+# Transformer model
 transformer = models.resnet34(pretrained=True)
 for param in transformer.parameters():
     param.requires_grad = False

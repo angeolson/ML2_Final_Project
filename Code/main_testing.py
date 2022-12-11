@@ -16,7 +16,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--path", default=None, type=str, required=True)  # Path of file
 args = parser.parse_args()
 PATH = args.path
-# PATH = '/home/ubuntu/Final-Project-Group4'
 DATA_PATH = PATH + os.path.sep + 'Data/Vegetable Images'
 CODE_PATH = PATH + os.path.sep + 'Code'
 
